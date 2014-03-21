@@ -64,9 +64,15 @@ C
 C           
 C
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C       COMMAND-LINE ARGUMENT DEFINING FULL PATH TO THE CONFIGURATION
+C       INPUT FILE
+
+        CHARACTER*80 argv, CONFILE
+        INTEGER NARG              ! NUMBER OF COMMAND-LINE ARGUMENTS
         PARAMETER  ( ICUNIT=8 )   ! CONFIGURATION INPUT FILE
-        CHARACTER*32 CONFILE
-        DATA CONFILE /'bufrsurface_config              '/
+
+C        CHARACTER*32 CONFILE
+C        DATA CONFILE /'bufrsurface_config              '/
 C
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         PARAMETER  ( IDUNIT=7 )   ! DIAGNOSTIC OUTPUT FILE
@@ -388,6 +394,13 @@ C ##############################################################################
 C #     OPEN AND READ THE CONFIGURATION FILE                                   #
 C ##############################################################################
 C
+        NARG=IARGC()
+        IF (NARG .GT. 0) THEN
+          CALL GETARG(1, argv)
+          CONFILE=argv
+        ELSE
+          CONFILE='bufrsurface_config'  ! Default configuration file
+        END IF
         OPEN (ICUNIT, FILE=CONFILE)
 C
 C        WRITE (*,*) 'opening configuration file'
