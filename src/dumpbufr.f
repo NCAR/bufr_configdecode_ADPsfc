@@ -28,7 +28,7 @@ c
       do while (.true.)
         call readns(11,csubset,idate,ierr)
         write(*,*)' idate: ',idate,'  ',csubset
-        call ufbdmp(11,21)
+        call ufdump(11,21)
         if(ierr.eq.-1) then
           write(*,*) '....All records read, exit.'
           call closbf(11)
