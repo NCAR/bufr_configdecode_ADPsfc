@@ -756,11 +756,15 @@ C
           NWBB = 0
         ENDIF
 C
-        IF (WMODO.EQ.'y'.OR.WBBDO.EQ.'y')  THEN
-          IF (IOBSDO.EQ.'n')  THEN
-            IOBSDO = 'y'
-            NOBS = 1
-            OBSGET(1) = 'SYNOP   '
+
+C Removing this if-block 30 Sep 2014 (T. Cram), since we want to retain
+c more than just SYNOP reports from individual stations.
+
+c        IF (WMODO.EQ.'y'.OR.WBBDO.EQ.'y')  THEN
+c          IF (IOBSDO.EQ.'n')  THEN
+c            IOBSDO = 'y'
+c            NOBS = 1
+c            OBSGET(1) = 'SYNOP   '
 C
 C
 C           STUFF BEING PUT IN OBSGET(2) AND OBSGET(3) IS JUST
@@ -768,12 +772,12 @@ C             FOR THE CONFIGURATION PRINTOUT, AND NOTHING ELSE.
 C             I.E., WITH NOBS SET TO 1, FILTERING FOR WMO NUMBERS
 C             WORKS ONLY FOR SYNOP OBS TYPE
 C
-            OBSGET(2) = '  forced'
-            IF (WMODO.EQ.'y')  OBSGET(3) = 'by WMODO'
-            IF (WBBDO.EQ.'y')  OBSGET(3) = 'by WBBDO'
-            OBSGET(4) = '        '
-          ENDIF
-        ENDIF
+c            OBSGET(2) = '  forced'
+c            IF (WMODO.EQ.'y')  OBSGET(3) = 'by WMODO'
+c            IF (WBBDO.EQ.'y')  OBSGET(3) = 'by WBBDO'
+c            OBSGET(4) = '        '
+c          ENDIF
+c        ENDIF
 C
         WRITE (*,*)
         WRITE (*,*)  'CONFIGURATION FILE HAS BEEN ACCEPTED:'
@@ -1512,8 +1516,8 @@ C    +      IELEVDO, IELEVL, IELEVH,
 C    +      WMODO, NWMO, (WMOLIST(NZ),NZ=1,20),
 C    +      WBBDO, NWBB, (WBBLIST(NZ),NZ=1,10)
 C
-C       WRITE (IDUNIT,9890)  INFILE, RECORDS, RECSREJ, RECSACC,
-C    +     REPORTS, REPSACC, REPSREJ
+        WRITE (IDUNIT,9890)  INFILE, RECORDS, RECSREJ, RECSACC,
+     +     REPORTS, REPSACC, REPSREJ
 9890    FORMAT (/,1X,'BUFR EXTRACTION STATISTICS',
      +            1X,'FOR FILE INFILE  ',A30,/,
      +            5X,'RECORDS    FOUND ',I12,/,
