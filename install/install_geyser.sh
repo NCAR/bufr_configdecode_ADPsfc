@@ -21,7 +21,7 @@ set -eua
  
 CPLAT=linux
 SRC=../src
-LIB=/glade/apps/opt/BUFRLIB/11.0.0/intel/12.1.5/lib 
+LIB=/glade/apps/opt/BUFRLIB/11.0.0/intel/12.1.5/lib  # path to BUFRLIB
 EXE=../exe
 INSTALL=.
 
@@ -44,8 +44,8 @@ then
 
 #   export FC=gfortran
 #   export CC=gcc
-#   fflag=" -DUNDERSCORE -fno-second-underscore -w"
-#   cflag=" -DUNDERSCORE -w"
+#   fflag=" -O3 -DUNDERSCORE -fno-second-underscore -w"
+#   cflag=" -O3 -DUNDERSCORE -w"
 fi
 
 #  Compile and archive the Bufr Library
@@ -65,6 +65,7 @@ fi
 echo "Compiling bufr_configdecode_ADPupa programs..."
 $FC $fflag -c $SRC/dumpbufr.f
 $FC $fflag -c $SRC/bufrsurfacefd.f
+$FC $fflag -c $SRC/bufrsurface_if.f
  
 #  link and load the executables
 #  -----------------------------
@@ -72,6 +73,7 @@ $FC $fflag -c $SRC/bufrsurfacefd.f
 echo "Linking..."
 $FC $fflag -o $EXE/dumpbufr.x dumpbufr.o $LIB/libbufr.a
 $FC $fflag -o $EXE/bufrsurfacefd.x bufrsurfacefd.o $LIB/libbufr.a
+$FC $fflag -o $EXE/bufrsurface_if.x bufrsurface_if.o $LIB/libbufr.a
 
 #  clean up
 #  --------
@@ -79,3 +81,4 @@ $FC $fflag -o $EXE/bufrsurfacefd.x bufrsurfacefd.o $LIB/libbufr.a
 rm -f *.o
 
 echo "Finished."
+
