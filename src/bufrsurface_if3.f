@@ -21,11 +21,11 @@ C       USERS CAN CHANGE THE DEFAULT INPUT DIRECTORY THROUGH THE CONFIGURATION
 C         FILE BY GIVING THEIR COMPLETE PATHNAME TO WHATEVER.
 C
         PARAMETER  ( INKSTN=1)       ! MAXIMUM NUMBER OF INPUT FILES
-        PARAMETER  ( LENINMX=192 )   ! MAXIMUM LENGTH OF INPUT BASE FILE NAMES
-        CHARACTER*192 INFILES(INKSTN)! 64 WOULD PICK UP ".le" EXTENSION AND MORE
-        CHARACTER*192 INFILE       ! STRING MUST HOLD DIRIN STRING (<=1024) PLUS
+        PARAMETER  ( LENINMX=250 )   ! MAXIMUM LENGTH OF INPUT BASE FILE NAMES
+        CHARACTER*250 INFILES(INKSTN)! 64 WOULD PICK UP ".le" EXTENSION AND MORE
+        CHARACTER*250 INFILE       ! STRING MUST HOLD DIRIN STRING (<=1024) PLUS
 C                                    !   INFILES(N) STRING (<=64)
-        CHARACTER*192 NOFILE
+        CHARACTER*250 NOFILE
 C
 C       BUFR INPUT DATA FILE NAMES (GIVEN IN THE USER'S CONFIGURATION FILE) 
 C         MUST BE BETWEEN 7 AND LENINMX CHARACTERS LONG, PREFERABLY IN THIS FORM:
@@ -33,8 +33,6 @@ C
 C           123456789012345678901234567890
 C           gdas.adpsfc.t00z.20100323.bufr
 C           gdas.sfcshp.t00z.20100323.bufr
-C           
-C           
 C
 C         THEY MAY OPTIONALLY INCLUDE THE SUFFIX .le (INDICATING LITTLE ENDIAN
 C         FORMAT)
@@ -56,7 +54,6 @@ C
         CHARACTER*4   DASTAG, DASTAGL
         CHARACTER*10  DATETAG
         CHARACTER*250 PRTFILE
-C        CHARACTER*192 PRTFILE
 C
 C       PRINT BASE FILENAMES WILL HAVE THIS FORM:
 C           123456789012345678901234567890
@@ -71,7 +68,7 @@ C       INPUT FILE
 
         CHARACTER*80 argv1, argv2, argv3, argv4, CONFILE
         CHARACTER*6   RINDEX
-        CHARACTER*36  infilepath
+        CHARACTER*47  infilepath
         CHARACTER*30  filename
 
         INTEGER NARG              ! NUMBER OF COMMAND-LINE ARGUMENTS
@@ -413,8 +410,7 @@ C
             CONFILE = argv4
 
           WRITE (*,*) 'rindex infilepath filename config_file'
-          WRITE (*,*) RINDEX, infilepath, filename, CONFILE
-          WRITE (*,*) RINDEX//"_"//infilepath//"_"//filename//"_"
+          WRITE (*,*) RINDEX//" "//infilepath//" "//filename//" "
      +                 //CONFILE
         ENDIF
 
@@ -900,12 +896,13 @@ C #                                                                            #
 C #     TOP OF MAIN LOOP ON INPUT FILES                                        #
 C #                                                                            #
         KNK = 0                                                                #
-        DOFILS: DO              ! LOOP TO READ BUFR DATA FILES                 #
+C Don't loop
+C        DOFILS: DO              ! LOOP TO READ BUFR DATA FILES                 #
 C #                                                                            #
 C ##############################################################################
 C
-        KNK = KNK + 1
-        IF (KNK.GT.INK)  EXIT DOFILS
+         KNK = KNK + 1
+C        IF (KNK.GT.INK)  EXIT DOFILS
 C
 C        INFILE = DIRIN(1:INHALE)//INFILES(KNK)
 C        INFILE = INFILES(KNK) 
@@ -964,11 +961,14 @@ C
      +              //DATETAG//'.txt'
           WRITE (*,*)  'PRTFILE ', PRTFILE
         ELSE
-          PRTFILE = INFILES(KNK)(30:LENEND)//'_print'
+          PRTFILE = './'//filename//'_'//RINDEX//'.print'
           WRITE (*,*)  'PRTFILE ', PRTFILE
         ENDIF
+
 C       override file string parsing
-        PRTFILE = './'//INFILES(KNK)(48:LENEND)//'_'//RINDEX//'.txt'
+C        PRTFILE = './'//INFILES(KNK)(48:LENEND)//'_'//RINDEX//'.txt'
+        PRTFILE = './'//filename//'_'//RINDEX//'.txt'
+
         WRITE (*,*)  'PRTFILE ', PRTFILE
 C
 C ##############################################################################
@@ -1210,7 +1210,7 @@ C
             R8CLON = R8IDENT(5,Z)
 C
             IF (LLDO.EQ.'y')  THEN
-              WRITE (IDUNIT,9987)  R8CLAT,R8CLON,LATS,LATN,LONW,LONE
+C              WRITE (IDUNIT,9987)  R8CLAT,R8CLON,LATS,LATN,LONW,LONE
 9987          FORMAT (1X,'CALLING R8CLAT,R8CLON,LATS,LATN,LONW,LONE ',/
      +                1X,F7.2,F7.2,4I5)
               CALL CKLL (RECORDS,RECREPS,R8CLAT,R8CLON,LATS,LATN,
@@ -1534,7 +1534,7 @@ C
         WRITE (IDUNIT,9890)  INFILE, RECORDS, RECSREJ, RECSACC,
      +     REPORTS, REPSACC, REPSREJ
 9890    FORMAT (/,1X,'BUFR EXTRACTION STATISTICS',
-     +            1X,'FOR FILE INFILE  ',A30,/,
+     +            1X,'FOR FILE INFILE  ',A66,/,
      +            5X,'RECORDS    FOUND ',I12,/,
      +            5X,'RECORDS REJECTED ',I12,/,
      +            5X,'RECORDS ACCEPTED ',I12,//,
@@ -1551,16 +1551,16 @@ C    +     REPORTS, REPSACC, REPSREJ
         ENDIF
 C
 C ##############################################################################
-C
-        ENDDO DOFILS            ! END OF READING A BUFR DATA FILE
+C   Don't loop
+C        ENDDO DOFILS            ! END OF READING A BUFR DATA FILE
 C
 C ##############################################################################
 C
-        WRITE (*,*)
-        WRITE (*,*)  'ALL ',INK,' BUFR DATA FILES PROCESSED'
-        WRITE (*,*)
+C        WRITE (*,*)
+C        WRITE (*,*)  'ALL ',INK,' BUFR DATA FILES PROCESSED'
+C        WRITE (*,*)
 C
-        WRITE(IDUNIT,9900)  INK
+C        WRITE(IDUNIT,9900)  INK
 9900    FORMAT (//,' **** ALL ',I5,' BUFR DATA FILES PROCESSED *****',
      +          //,' ************ DONE ************')
 C        STOP 99999
