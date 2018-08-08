@@ -416,8 +416,8 @@ C
  20       len_inpath = IP
 
           WRITE (*,*) 'rindex infilepath filename config_file'
-          WRITE (*,*) RINDEX//" "//infilepath(1:len_inpath)//" "//filename//" "
-     +                 //CONFILE
+          WRITE (*,*) RINDEX//" "//infilepath(1:len_inpath)//" "
+     +                //filename//" "//CONFILE
         ENDIF
 
         OPEN (ICUNIT, FILE=CONFILE)
