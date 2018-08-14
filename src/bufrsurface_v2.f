@@ -1134,20 +1134,19 @@ C           WRITE (6,6666)  DEFAULT, NNBASIC, NOBASIC, NML, NOEXTRA
 C
             REPSACC = REPSACC + 1
 C
-C           IF (MOD(REPSACC,30).EQ.1)  THEN
-            IF (    REPSACC    .EQ.1)  THEN
-C
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 C +           PRINT A HEADER EVERY 30 REPORTS -                                +
 C +             2011.05.13 - WE'RE DOING JUST THE FIRST ONE, TO MAKE IT SIMPLER+
 C +             TO LOAD THE FILE INTO A SPREADSHEET.                           + 
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 C
+C           IF (MOD(REPSACC,30).EQ.1)  THEN
+            IF (    REPSACC    .EQ.1)  THEN
               WRITE (IPUNIT,9270)  DUMPHED(1)(001:IHDEND),
      +                             DUMPHED(2)(001:IHDEND)
-C270          FORMAT ('# '/'# ',a/'# ',a)  # DROPPED THE # ON 211.05.13
 9270          FORMAT ('  '/'  ',a/'  ',a)
             ENDIF
+
             IF (DEFAULT.EQ.'y')  THEN
               WRITE (IPUNIT,9280)
 C    &        RECTYPE, IRECDAT, OBSTYPE,
