@@ -1,5 +1,5 @@
 C ##############################################################################
-C #     PROGRAM bufrsurface_v2.f                                               #
+C #     PROGRAM bufrsurface.f                                               #
 C #                                                                            #
 C #      A BUFR INPUT DATA FILE CONTAINS A SERIES OF "MESSAGES" (WHICH ARE     #
 C #        VARIABLE LENGTH RECORDS), EACH CONTAINING AT LEAST ONE BUFR         #
@@ -81,9 +81,6 @@ C
         CHARACTER*10   XN      ! FOR BLANK FILLING IN MNEMONIC USAGE
         DATA XN      / '          ' /
 C
-C
-C
-C
         CHARACTER*1    LLDO
         CHARACTER*1    LLWRAP
 C
@@ -119,7 +116,6 @@ C
         REAL*8       R8XPARM(MXMN,MXREPL) ! ARRAY TO RECEIVE DATA REQUESTED IN NEMLIST
 C
         CHARACTER*1 ISBPARM, ISXPARM
-C
 C
 C       A STRING OF MNEMONICS PROVIDED TO UFBINT CAN NOT INVOLVE MORE THAN ONE
 C         "REPLICATION GROUP."  FROM "GUIDE TO WMO TABLE DRIVEN CODE FORMS:"
@@ -339,13 +335,13 @@ C
 c         IDX = 0: CHECK DIAGNOSTIC FLAG
           IF (IDX.EQ. 0)  THEN
 C
-C           FOR NCAR/CISL/DSS USAGE ONLY, FOR DIAGNOSTIC RUNS
+C   DODIAG: FLAG TO PRINT OUT DIAGNOSTIC INFORMATION
 C
             READ (CSTRING,'(4X,A1)')  DODIAG
             CYCLE
           ENDIF
 
-C         IDX = 2: BUFR RECORD/REPORT TYPES
+C   IDX = 2: BUFR RECORD/REPORT TYPES
           IF (IDX.EQ. 2)  THEN
             IF (INDEX.EQ.21)  THEN
               READ (CSTRING,'(4X,10(A6,1X))')
@@ -373,12 +369,12 @@ C         IDX = 2: BUFR RECORD/REPORT TYPES
             CYCLE
           ENDIF
 
-C         IDX = 4: PARAMETER MNEMONIVS SUBSETTING
+C   IDX = 4: PARAMETER MNEMONICS SUBSETTING
           IF (IDX.EQ. 4)  THEN
             IF (INDEX.EQ.41.AND.CSTRING(5:5).EQ.'n')  THEN
               DEFAULT = 'n'
 C
-C             MUST RESET THE HEADER STRINGS
+C   MUST RESET THE HEADER STRINGS
 C
         DUMPHED(1)(001:028) = ' REC      OBS       REPORT T'
         DUMPHED(1)(029:068) = 'IME   STATION   LATI-   LONGI-   ELE-   '
@@ -439,7 +435,7 @@ C
             CYCLE
           ENDIF
           
-C         IDX = 5: LATITUDE/LONGITUDE BOUNDARIES
+C   IDX = 5: LATITUDE/LONGITUDE BOUNDARIES
           IF (IDX.EQ. 5)  THEN
             IF (CSTRING(05:10).EQ.'      '.OR.
      +          CSTRING(11:16).EQ.'      '.OR.
@@ -469,7 +465,7 @@ C
             CYCLE
           ENDIF
           
-C         IDX = 6: SELECT REPORTS WITHIN A CIRCLE RADIUS OF A POINT LOCATION
+C   IDX = 6: SELECT REPORTS WITHIN A CIRCLE RADIUS OF A POINT LOCATION
           IF (IDX.EQ. 6)  THEN
             IF (INDEX.EQ.61.AND.CSTRING(1:4).NE.'   ')  THEN
               READ (CSTRING,'(4X,I3)',IOSTAT=IOS)  RADR
@@ -501,7 +497,7 @@ C         IDX = 6: SELECT REPORTS WITHIN A CIRCLE RADIUS OF A POINT LOCATION
             ENDIF
           ENDIF
           
-C         IDX = 7: WMO STATION NUMBER OR WMO BLOCK ID
+C   IDX = 7: WMO STATION NUMBER OR WMO BLOCK ID
           IF (IDX.EQ. 7)  THEN
             IF (INDEX.EQ.71)  THEN
               READ (CSTRING,'(4X,10(A5,1X))')
@@ -527,7 +523,7 @@ C         IDX = 7: WMO STATION NUMBER OR WMO BLOCK ID
             ENDIF
           ENDIF
 
-C         IDX = 8: OBSERVATION PLATFORM LEVEL (STATION ELEVATION OR
+C   IDX = 8: OBSERVATION PLATFORM LEVEL (STATION ELEVATION OR
 C             PRESSURE LEVEL OF A SOUNDING)
           IF (IDX.EQ. 8)  THEN
             IF (INDEX.EQ.81)  THEN
@@ -556,7 +552,7 @@ C             PRESSURE LEVEL OF A SOUNDING)
             CYCLE
           ENDIF
           
-C         IDX = 9: TEMPERATURE UNIT CONVERSION (C/K)
+C   IDX = 9: TEMPERATURE UNIT CONVERSION (C/K)
           IF (IDX.EQ. 9)  THEN
             IF (INDEX.EQ.91)  THEN    ! TEMPERATURES IN KELVIN OR CELSIUS
               READ (CSTRING,'(4X,A1)',IOSTAT=IOS)  KELCEL
@@ -567,10 +563,6 @@ C         IDX = 9: TEMPERATURE UNIT CONVERSION (C/K)
             ENDIF
             CYCLE
           ENDIF
-C
-C         IF (IDX.EQ.10)  THEN
-C           CYCLE
-C         ENDIF
 C
         ENDDO                   ! END OF CONFIGURATION FILE READS
 C
@@ -619,7 +611,6 @@ C
           NWBB = 0
         ENDIF
 C
-
 C Removing this if-block 30 Sep 2014 (T. Cram), since we want to retain
 c more than just SYNOP reports from individual stations.
 
@@ -1251,10 +1242,7 @@ C
         IF (REPSACC.LE.0)  THEN      ! REMOVE AN EMPTY OUTPUT FILE, WHEN IT EXISTS
           CALL SYSTEM ("rm -f output_file")
         ENDIF
-C
-C-----7---------------------------------------------------------------72
-C   Don't loop
-C        ENDDO DOFILS            ! END OF READING A BUFR DATA FILE
+
 C-----7---------------------------------------------------------------72
 
         END
@@ -1708,32 +1696,3 @@ C
         ENDDO
         RETURN
         END
-C ***
-C ***   When modifying bufradpsfc.f, after editing, a reinstall must
-C ***     be done by doing
-C ***          cd .../bufrdecode/src
-C ***          [edit] bufradpsfc.f
-C ***          cd ../install
-C ***          cat install.sh | sed s/CPLAT=linux/CPLAT=sun/ >! mk_exec.sh
-C ***          chmod 700 mk_sun_exec.sh
-C ***          mk_sun_exec.sh >>&! /dev/null
-C ***
-C ***     My bufr_bench script takes care of these procedures
-C ***
-C ***     Note that the install expects to be run in the .../install
-C ***     directory, to find the source code in a file named
-C ***     .../src/bufradpsfc.f , and a library of supporting code in
-C ***     .../lib , and will write the executable in
-C ***     .../exe/bufradpsfc.x .  It's default platform is "linux".  You
-C ***     you may need to change that to "sun" or something.
-C ***
-C ***   The install creates a script named convert.csh in directory .../exe,
-C ***     which runs every file found in directory .../bufrobs through
-C ***     both surface data decoders - .../exe/bufradpsfc.x and
-C ***     .../exe/bufrsfcship.x , leaving outputs in directory .../textobs.
-C ***
-C ***   Note that the published data files are in:
-C ***     /datazone/dsszone/ds461.0/
-C ***     A single typical ds461.0 tar file has a name like:
-C ***     gdassfcobs.20100410.tar.gz
-C ***
