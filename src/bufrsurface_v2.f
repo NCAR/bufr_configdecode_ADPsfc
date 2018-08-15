@@ -930,9 +930,6 @@ C
             R8CLON = R8IDENT(5,Z)
 C
             IF (LLDO.EQ.'y')  THEN
-C              WRITE (IDUNIT,9987)  R8CLAT,R8CLON,LATS,LATN,LONW,LONE
-9987          FORMAT (1X,'CALLING R8CLAT,R8CLON,LATS,LATN,LONW,LONE ',/
-     +                1X,F7.2,F7.2,4I5)
               CALL CKLL (RECORDS,RECREPS,R8CLAT,R8CLON,LATS,LATN,
      +                   LONW,LONE,LLWRAP,IDUNIT,DODIAG,ACK)
               IF (ACK.EQ.'n')  GO TO 290        ! REJECT UNINTERESTING REPORT
@@ -1260,10 +1257,6 @@ C   Don't loop
 C        ENDDO DOFILS            ! END OF READING A BUFR DATA FILE
 C-----7---------------------------------------------------------------72
 
-C        WRITE(IDUNIT,9900)  INK
-9900    FORMAT (//,' **** ALL ',I5,' BUFR DATA FILES PROCESSED *****',
-     +          //,' ************ DONE ************')
-C        STOP 99999
         END
 C
 C       ########################################################################
