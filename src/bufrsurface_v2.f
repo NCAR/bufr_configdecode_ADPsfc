@@ -1,11 +1,14 @@
 C ##############################################################################
-C #     PROGRAM bufrsurface.f                                               #
+C #     PROGRAM bufrsurface.f                                                  #
 C #                                                                            #
 C #      A BUFR INPUT DATA FILE CONTAINS A SERIES OF "MESSAGES" (WHICH ARE     #
 C #        VARIABLE LENGTH RECORDS), EACH CONTAINING AT LEAST ONE BUFR         #
 C #        "SUB-MESSAGE" (REPORT).  THIS PROGRAM BREAKS THESE OPEN AND PRINTS  #
 C #        OUT THE REPORTS, WITH OPTIONS PROVIDED BY THE USER'S CONFIGURATION  #
-C #        FILE.                                                             #
+C #        FILE.                                                               #
+C #                                                                            #
+C #     For more information, see                                              #
+C #        http://www.nco.ncep.noaa.gov/sib/decoders/BUFRLIB/                  #
 C ##############################################################################
 C
         CHARACTER*1 DODIAG        ! SET BY DSS STAFF (NOT BY USERS) TO OBTAIN
@@ -26,10 +29,6 @@ C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
         INTEGER NARG              ! NUMBER OF COMMAND-LINE ARGUMENTS
 
-C       BUFR INPUT DATA FILE NAMES 
-C           gdas.adpsfc.t00z.20100323.bufr
-C           gdas.sfcshp.t00z.20100323.bufr
-C
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 C       VALUES FOR DATA PROCESSING ARRAY DIMENSIONS.  
 C         USERS SHOULD NOT MAKE CHANGES TO THESE.
@@ -70,8 +69,6 @@ C
         CHARACTER*8    OBSGET(1000)
         CHARACTER*1    IOBSDO
 C
-        CHARACTER*1    DATEDO
-        CHARACTER*1    DATEOK
         CHARACTER*6    RRLEV
 C
         CHARACTER*1    KELCEL               ! 'k'/'c'  KELVIN / CELSIUS 
@@ -108,7 +105,6 @@ C         http://www.emc.ncep.noaa.gov/mmb/data_processing/bufrtab_tableb.htm
 C         ONE OR MORE OF THE PARAMETERS MAY BE "REPLICATED"
 C
         CHARACTER*80 QIDENT               ! REPORT IDENTIFICATION TABLE B MNEMONICS
-C
         CHARACTER*80 QBPARM               ! BASIC PARAMETER TABLE B MNEMONICS
 C
         REAL*8       R8IDENT(MXMN,MXREPL) ! ARRAY TO RECEIVE DATA REQUESTED IN QIDENT
@@ -128,8 +124,8 @@ C         NODES (MNEMONICS), WHEN REPLICATION GETS BROKEN SOMEHOW.
 C
         REAL*8 R8CLAT, R8CLON
         REAL*8 R8PRES, R8PMSL, R8WDIR, R8WSPD
-C
         REAL*8 R8TMDB, R8TMDP, R8REHU
+        REAL*8 R8TP03, R8TP24
 C
         REAL*8 R8BIG
         DATA R8BIG / 9999999999.0 /
