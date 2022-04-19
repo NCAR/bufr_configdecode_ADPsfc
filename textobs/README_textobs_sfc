@@ -1,8 +1,0 @@
-README_textobs
-
-This directory will contain the text output files generated
-by bufrsurface.x.  Sample output files "ADPSFC.20100323<HH>print_US_def_sample"
-(showing what the proper output should look like)
-are pre-staged in this directory for users testing
-the software with the pre-staged "bufrobs/bufrsurface_config" file
-and "gdassfcobs.20100323.tar.gz" data.

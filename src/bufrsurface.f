@@ -1,11 +1,14 @@
 C ##############################################################################
-C #     PROGRAM BUFRSFC                                                        #
+C #     PROGRAM bufrsurface.f                                                  #
 C #                                                                            #
 C #      A BUFR INPUT DATA FILE CONTAINS A SERIES OF "MESSAGES" (WHICH ARE     #
 C #        VARIABLE LENGTH RECORDS), EACH CONTAINING AT LEAST ONE BUFR         #
 C #        "SUB-MESSAGE" (REPORT).  THIS PROGRAM BREAKS THESE OPEN AND PRINTS  #
 C #        OUT THE REPORTS, WITH OPTIONS PROVIDED BY THE USER'S CONFIGURATION  #
 C #        FILE.                                                               #
+C #                                                                            #
+C #     For more information, see                                              #
+C #        http://www.nco.ncep.noaa.gov/sib/decoders/BUFRLIB/                  #
 C ##############################################################################
 C
         CHARACTER*1 DODIAG        ! SET BY DSS STAFF (NOT BY USERS) TO OBTAIN
@@ -13,79 +16,19 @@ C                                 !   EXECUTION OR PERFORMANCE DIAGNOSTICS
 C
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         PARAMETER  ( IIUNIT=11 )  ! BUFR INPUT FILE UNIT
-        CHARACTER*1024  DIRIN,  DEFIN
-        INTEGER         INHALE
-        DATA DEFIN(01:10)   /'../bufrobs'/  ! DEFAULT INPUT DIRECTORY
-C
-C       USERS CAN CHANGE THE DEFAULT INPUT DIRECTORY THROUGH THE CONFIGURATION
-C         FILE BY GIVING THEIR COMPLETE PATHNAME TO WHATEVER.
-C
-        PARAMETER  ( INKSTN=40000)  ! MAXIMUM NUMBER OF INPUT FILES
-        PARAMETER  ( LENINMX=64 )   ! MAXIMUM LENGTH OF INPUT BASE FILE NAMES
-        CHARACTER*64 INFILES(INKSTN)! 64 WOULD PICK UP ".le" EXTENSION AND MORE
-        CHARACTER*1088 INFILE       ! STRING MUST HOLD DIRIN STRING (<=1024) PLUS
-C                                   !   INFILES(N) STRING (<=64)
-        CHARACTER*64 NOFILE
-C
-C       BUFR INPUT DATA FILE NAMES (GIVEN IN THE USER'S CONFIGURATION FILE) 
-C         MUST BE BETWEEN 7 AND LENINMX CHARACTERS LONG, PREFERABLY IN THIS FORM:
-C
-C           123456789012345678901234567890
-C           gdas.adpsfc.t00z.20100323.bufr
-C           gdas.sfcshp.t00z.20100323.bufr
-C           
-C           
-C
-C         THEY MAY OPTIONALLY INCLUDE THE SUFFIX .le (INDICATING LITTLE ENDIAN
-C         FORMAT)
-C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        PARAMETER  ( IPUNIT=21 )  ! PRINT (AKA DUMP OR OUTPUT) FILE UNIT 
-        CHARACTER*1024  DIROUT, DEFOUT
-        INTEGER      EXHALE
-        DATA  DEFOUT(01:10) /'../textobs'/  ! DEFAULT OUTPUT DIRECTORY
-C
-C       USERS CAN CHANGE THE DEFAULT OUTPUT DIRECTORY THROUGH THE CONFIGURATION
-C         FILE BY GIVING THEIR COMPLETE PATHNAME TO WHATEVER.
-C
-C       THERE IS NO PROVISION FOR A LIST OF PRINT FILES, BECAUSE THEY ARE
-C         BUILT FROM THE INPUT FILENAMES DURING EXECUTION - THEREBY PRESERVING
-C         A CONVENIENT ONE TO ONE RELATIONSHIP
-C
-        CHARACTER*6   NAMETAG, NAMTAGL
-        CHARACTER*4   DASTAG, DASTAGL
-        CHARACTER*10  DATETAG
-        CHARACTER*192 PRTFILE
-C
-C       PRINT BASE FILENAMES WILL HAVE THIS FORM:
-C           123456789012345678901234567890
-C           ADPSFC.2010032300print
-C           SFCSHP.2010032300print
-C           
-C           
-C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C       COMMAND-LINE ARGUMENT DEFINING FULL PATH TO THE CONFIGURATION
-C       INPUT FILE
-
-        CHARACTER*80 argv, CONFILE
-        INTEGER NARG              ! NUMBER OF COMMAND-LINE ARGUMENTS
+        PARAMETER  ( IPUNIT=21 )  ! OUTPUT FILE UNIT 
         PARAMETER  ( ICUNIT=8 )   ! CONFIGURATION INPUT FILE
-
-C        CHARACTER*32 CONFILE
-C        DATA CONFILE /'bufrsurface_config              '/
-C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
         PARAMETER  ( IDUNIT=7 )   ! DIAGNOSTIC OUTPUT FILE
-        CHARACTER*32 DIGFILE
-        DATA DIGFILE /'bufrsurface_diagnostics         '/
-C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-        PARAMETER  ( IXUNIT=9 )   ! BUFR TABLE EXAMPLE FILE (NOT USED)
-C         ONLY THE MOST GIFTED AND EXPERIENCED NCEP SOFTWARE DEVELOPERS WOULD 
-C           WANT TO MAKE USE OF THIS.
-C         USERS SHOULD IGNORE, BECAUSE IT WILL HAVE NO SUPPORT
-C
+
+        PARAMETER  ( LENINMX=128 )   ! MAXIMUM LENGTH OF INPUT BASE FILE NAMES
+        CHARACTER*128 INFILE
+
+        CHARACTER*128 input_file, output_file, config_file, argv
+        CHARACTER*32 diag_file
+        DATA diag_file /'bufrsurface_diagnostics         '/
+
+        INTEGER NARG              ! NUMBER OF COMMAND-LINE ARGUMENTS
+
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 C       VALUES FOR DATA PROCESSING ARRAY DIMENSIONS.  
 C         USERS SHOULD NOT MAKE CHANGES TO THESE.
@@ -126,8 +69,6 @@ C
         CHARACTER*8    OBSGET(1000)
         CHARACTER*1    IOBSDO
 C
-        CHARACTER*1    DATEDO
-        CHARACTER*1    DATEOK
         CHARACTER*6    RRLEV
 C
         CHARACTER*1    KELCEL               ! 'k'/'c'  KELVIN / CELSIUS 
@@ -136,9 +77,6 @@ C
         CHARACTER*1    NMDO
         CHARACTER*10   XN      ! FOR BLANK FILLING IN MNEMONIC USAGE
         DATA XN      / '          ' /
-C
-C
-C
 C
         CHARACTER*1    LLDO
         CHARACTER*1    LLWRAP
@@ -167,7 +105,6 @@ C         http://www.emc.ncep.noaa.gov/mmb/data_processing/bufrtab_tableb.htm
 C         ONE OR MORE OF THE PARAMETERS MAY BE "REPLICATED"
 C
         CHARACTER*80 QIDENT               ! REPORT IDENTIFICATION TABLE B MNEMONICS
-C
         CHARACTER*80 QBPARM               ! BASIC PARAMETER TABLE B MNEMONICS
 C
         REAL*8       R8IDENT(MXMN,MXREPL) ! ARRAY TO RECEIVE DATA REQUESTED IN QIDENT
@@ -175,7 +112,6 @@ C
         REAL*8       R8XPARM(MXMN,MXREPL) ! ARRAY TO RECEIVE DATA REQUESTED IN NEMLIST
 C
         CHARACTER*1 ISBPARM, ISXPARM
-C
 C
 C       A STRING OF MNEMONICS PROVIDED TO UFBINT CAN NOT INVOLVE MORE THAN ONE
 C         "REPLICATION GROUP."  FROM "GUIDE TO WMO TABLE DRIVEN CODE FORMS:"
@@ -188,18 +124,8 @@ C         NODES (MNEMONICS), WHEN REPLICATION GETS BROKEN SOMEHOW.
 C
         REAL*8 R8CLAT, R8CLON
         REAL*8 R8PRES, R8PMSL, R8WDIR, R8WSPD
-C
-C
-C
-C
-C
-C
-C
-C
-C
-C
-C
         REAL*8 R8TMDB, R8TMDP, R8REHU
+        REAL*8 R8TP03, R8TP24
 C
         REAL*8 R8BIG
         DATA R8BIG / 9999999999.0 /
@@ -229,25 +155,9 @@ C
 C
         CHARACTER*1 DOHEAD, PARSEOK
 C
-C ##############################################################################
-C #     END OF DECLARATIONS  ############## BEGIN INSTRUCTIONS #################
-C ##############################################################################
-C
-        DIRIN(001:032)   = '                                '
-        DIRIN(033:064)   = DIRIN(001:032)
-        DIRIN(065:128)   = DIRIN(001:064)
-        DIRIN(129:256)   = DIRIN(001:128)
-        DIRIN(257:512)   = DIRIN(001:256)
-        DIRIN(513:1024)  = DIRIN(001:512)
-C
-        NOFILE(001:064)  = DIRIN(001:064)
-        INFILE(001:1088) = DIRIN(001:1024)//NOFILE(001:064)
-C
-        DIROUT(001:1024) = DIRIN(001:1024)
-        PRTFILE(001:192) = DIROUT(001:128)//NOFILE(001:064)
-C
-        DIRIN(001:010)   = DEFIN(001:010)       ! INITIALIZE  INPUT DIRECTORY WITH DEFAULT
-        DIROUT(001:010)  = DEFOUT(001:010)      ! INITIALIZE OUTPUT DIRECTORY WITH DEFAULT
+C-----7---------------------------------------------------------------72
+C     END OF DECLARATIONS  ############## BEGIN INSTRUCTIONS
+C-----7---------------------------------------------------------------72
 C
 C       THESE NEXT TWO STRING SIZES ARE LIMITED BY THE BUFR
 C         LIBRARY - SEE ROUTINE string.f
@@ -303,24 +213,14 @@ C
         XMSG = -9999.9
         XN = '          '
 C
-C       N = IARGC()     ! GNU FORTRAN: NUMBER OF ARGUMENTS PASSED ON THE
-C                       !   COMMAND LINE
-C
-        DO N = 1, INKSTN
-          INFILES(N)(001:064) = NOFILE(001:064)
-        ENDDO
-C
-        INK = 0
-C
-C ##############################################################################
-C #     INITIALIZE SELECTION CONFIGURATION AND SET DEFAULTS                    #
-C ##############################################################################
+C-----7---------------------------------------------------------------72
+C    INITIALIZE SELECTION CONFIGURATION AND SET DEFAULTS
+C-----7---------------------------------------------------------------72
 C
         DODIAG = 'n'
         DEFAULT = 'y'           ! WHEN SET TO 'n', PROGRAM WILL GET ONLY THE
 C                               !   PARAMETERS SPECIFIED BY THE USER. E.G. JUST
 C                               !   ONE, LIKE TEMPERATURE
-C
 C
 C-------
         IRECBEG = 1
@@ -339,10 +239,6 @@ C
         ENDDO
         NOBS = 0
         IOBSDO = 'n'
-C-------
-        IBEGDAT = 99            ! INDEX 031   YEAR_MNTH_DAY_HOUR  beginning date
-        IENDDAT = 99            ! INDEX 031   YEAR_MNTH_DAY_HOUR  ending date
-        DATEDO = 'n'
 C-------
         DO N = 1, NEMLIM
           NEMLIST(N) = '        ' ! INDEX 041   e.g. PMSL           list of extra mnemonics (parameters)
@@ -385,30 +281,38 @@ C-------
         IELEVDO = 'n'
 C-------
 C
-C
-C
-C
-C
         KELCEL = 'c'            ! INDEX 0
 
-C ##############################################################################
-C #     OPEN AND READ THE CONFIGURATION FILE                                   #
-C ##############################################################################
+C-----7---------------------------------------------------------------72
+C       READ INPUT ARGUMENTS                                    
+C-----7---------------------------------------------------------------72
 C
-        NARG=IARGC()
-        IF (NARG .GT. 0) THEN
-          CALL GETARG(1, argv)
-          CONFILE=argv
-        ELSE
-          CONFILE='bufrsurface_config'  ! Default configuration file
-        END IF
-        OPEN (ICUNIT, FILE=CONFILE)
+       NARG=IARGC()
+       IF (NARG .LT. 3) THEN
+          WRITE (*,*) 'Three input arguments required:'
+          WRITE (*,*) 'Usage: bufrsurface.x input_file '//
+     +                'output_file config_file'
+          STOP 'Insufficient input given'
+       ELSE
+          CALL GETARG(1,argv)
+            input_file=argv
+          CALL GETARG(2,argv)
+            output_file=argv
+          CALL GETARG(3,argv)
+            config_file=argv            
+          WRITE (*,*) 'input file: ',input_file
+          WRITE (*,*) 'output file: ',output_file
+          WRITE (*,*) 'configuration file: ',config_file
+       ENDIF
 C
-C        WRITE (*,*) 'opening configuration file'
+C-----7---------------------------------------------------------------72
+C      OPEN AND READ CONFIGURATION FILE                                 
+C-----7---------------------------------------------------------------72
 C
+        OPEN (ICUNIT, FILE=config_file)
         IFILTER = 'n'
 C
-        DO IC = 1, 10000        ! BEGIN  CONFIGURATION FILE READS
+        DO IC = 1, 100        ! BEGIN  CONFIGURATION FILE READS
 C 
           IF (DODIAG.EQ.'y')  THEN
             WRITE (*,*)  'read line ',ic,' from the configuration file'
@@ -418,55 +322,23 @@ C
 8020      FORMAT (A)
           IF (IOS.NE.0)  EXIT
           READ (CSTRING,'(I3)')  INDEX
-C
-C          WRITE (*,*)  '  just read the index ',index,' off of the line'
-C 
+
           IF (INDEX.EQ.999)  THEN
             EXIT
           ENDIF
           IDX = INDEX / 10
+
+c         IDX = 0: CHECK DIAGNOSTIC FLAG
           IF (IDX.EQ. 0)  THEN
 C
-C           FOR NCAR/CISL/DSS USAGE ONLY, FOR DIAGNOSTIC RUNS
+C   DODIAG: FLAG TO PRINT OUT DIAGNOSTIC INFORMATION
 C
             READ (CSTRING,'(4X,A1)')  DODIAG
             CYCLE
           ENDIF
-          IF (IDX.EQ. 1)  THEN
-C
-C           PROVIDE NAMES OF INPUT AND OUTPUT DIRECTORIES
-C
-            IF (INDEX.EQ.15)  THEN
-              READ (CSTRING,'(4X,A128)')  DIRIN(001:128)
-            ENDIF
-            IF (INDEX.EQ.16)  THEN
-              READ (CSTRING,'(4X,A128)')  DIROUT(001:128)
-            ENDIF
-C
-C           PROVIDE A LIST OF INPUT FILE NAMES (MANDATORY)
-C             AND PREFERRED INPUT AND/OR OUTPUT DIRECTORIES,
-C
-            IF (INDEX.EQ.11)  THEN
-              INK = INK + 1
-              IF (INK.LE.INKSTN)  THEN
-                READ (CSTRING,'(4X,A64)')  INFILES(INK)(1:LENINMX)
-                DO N = 1, LENINMX
-                  IF (INFILES(INK)(N:N).EQ.' ')  THEN
-                    LENINFN = N - 1
-                    IF (LENINFN.LT.7)  THEN
-                      INK = INK - 1
-                      CYCLE
-                    ENDIF
-                  ENDIF
-                ENDDO
-              ENDIF
-            ENDIF
-            CYCLE
-          ENDIF
+
+C   IDX = 2: BUFR RECORD/REPORT TYPES
           IF (IDX.EQ. 2)  THEN
-C
-C           SELECT RECORD AND/OR REPORT TYPES
-C
             IF (INDEX.EQ.21)  THEN
               READ (CSTRING,'(4X,10(A6,1X))')
      +        (RECGET(N),N=IRECBEG,IRECEND)
@@ -492,26 +364,13 @@ C
             ENDIF
             CYCLE
           ENDIF
-          IF (IDX.EQ. 3)  THEN
-C
-C           SELECT A RANGE OF DATES TO EXTRACT
-C
-            READ (CSTRING,'(4X,I10,2X,I10)',IOSTAT=IOS) IBEGDAT, IENDDAT  ! YYYYMMDDHH
-            IF (IOS.NE.0)  CYCLE
-            IF (IBEGDAT.GE.1970010100.AND.IENDDAT.GE.IBEGDAT)  THEN
-              DATEDO = 'y'
-              IFILTER = 'y'
-            ENDIF
-            CYCLE
-          ENDIF
+
+C   IDX = 4: PARAMETER MNEMONICS SUBSETTING
           IF (IDX.EQ. 4)  THEN
-C
-C           SPECIFY THE MNEMONICS FOR ADDITIONAL PARAMETERS TO SELECT
-C
             IF (INDEX.EQ.41.AND.CSTRING(5:5).EQ.'n')  THEN
               DEFAULT = 'n'
 C
-C             MUST RESET THE HEADER STRINGS
+C   MUST RESET THE HEADER STRINGS
 C
         DUMPHED(1)(001:028) = ' REC      OBS       REPORT T'
         DUMPHED(1)(029:068) = 'IME   STATION   LATI-   LONGI-   ELE-   '
@@ -571,10 +430,9 @@ C
             ENDIF
             CYCLE
           ENDIF
+          
+C   IDX = 5: LATITUDE/LONGITUDE BOUNDARIES
           IF (IDX.EQ. 5)  THEN
-C
-C           SELECT REPORTS FROM A LATITUDE-LONGITUDE WINDOW
-C
             IF (CSTRING(05:10).EQ.'      '.OR.
      +          CSTRING(11:16).EQ.'      '.OR.
      +          CSTRING(17:22).EQ.'      '.OR.
@@ -602,10 +460,9 @@ C
             ENDIF
             CYCLE
           ENDIF
+          
+C   IDX = 6: SELECT REPORTS WITHIN A CIRCLE RADIUS OF A POINT LOCATION
           IF (IDX.EQ. 6)  THEN
-C
-C           SELECT REPORTS WITHIN A CIRCLE (RADIUS) OF A LOCATION
-C
             IF (INDEX.EQ.61.AND.CSTRING(1:4).NE.'   ')  THEN
               READ (CSTRING,'(4X,I3)',IOSTAT=IOS)  RADR
               IF (IOS.NE.0)  CYCLE
@@ -635,10 +492,9 @@ C
               CYCLE
             ENDIF
           ENDIF
+          
+C   IDX = 7: WMO STATION NUMBER OR WMO BLOCK ID
           IF (IDX.EQ. 7)  THEN
-C
-C           SELECT ADPSFC OR ADPUPA STATIONS BY WMO NUMBER OR WMO BLOCK
-C
             IF (INDEX.EQ.71)  THEN
               READ (CSTRING,'(4X,10(A5,1X))')
      +          (WMOLIST(N),N=IWBEG,IWEND)
@@ -662,11 +518,10 @@ C
               CYCLE
             ENDIF
           ENDIF
-          IF (IDX.EQ. 8)  THEN
-C
-C           SELECT OBSERVATION PLATFORM LEVEL (STATION ELEVATION OR
+
+C   IDX = 8: OBSERVATION PLATFORM LEVEL (STATION ELEVATION OR
 C             PRESSURE LEVEL OF A SOUNDING)
-C
+          IF (IDX.EQ. 8)  THEN
             IF (INDEX.EQ.81)  THEN
               IF (CSTRING(05:10).NE.'      '.AND.
      +          CSTRING(11:16).NE.'      ')  THEN
@@ -692,10 +547,9 @@ C
             ENDIF
             CYCLE
           ENDIF
+          
+C   IDX = 9: TEMPERATURE UNIT CONVERSION (C/K)
           IF (IDX.EQ. 9)  THEN
-C
-C           VARIOUS UNIT CHANGES, ETC.
-C
             IF (INDEX.EQ.91)  THEN    ! TEMPERATURES IN KELVIN OR CELSIUS
               READ (CSTRING,'(4X,A1)',IOSTAT=IOS)  KELCEL
               IF (IOS.NE.0)  CYCLE
@@ -706,14 +560,11 @@ C
             CYCLE
           ENDIF
 C
-C         IF (IDX.EQ.10)  THEN
-C           CYCLE
-C         ENDIF
-C
         ENDDO                   ! END OF CONFIGURATION FILE READS
 C
         CLOSE (ICUNIT )
-C ##############################################################################
+
+C-----7---------------------------------------------------------------72
 C
         IF (IRECDO.EQ.'y')  THEN
           DO N = 1, 20
@@ -756,7 +607,6 @@ C
           NWBB = 0
         ENDIF
 C
-
 C Removing this if-block 30 Sep 2014 (T. Cram), since we want to retain
 c more than just SYNOP reports from individual stations.
 
@@ -767,7 +617,7 @@ c            NOBS = 1
 c            OBSGET(1) = 'SYNOP   '
 C
 C
-C           STUFF BEING PUT IN OBSGET(2) AND OBSGET(3) IS JUST
+C           DATA WRITTEN TO OBSGET(2) AND OBSGET(3) IS JUST
 C             FOR THE CONFIGURATION PRINTOUT, AND NOTHING ELSE.
 C             I.E., WITH NOBS SET TO 1, FILTERING FOR WMO NUMBERS
 C             WORKS ONLY FOR SYNOP OBS TYPE
@@ -782,18 +632,14 @@ C
         WRITE (*,*)
         WRITE (*,*)  'CONFIGURATION FILE HAS BEEN ACCEPTED:'
 C
-C       write (*,*)  'files to be read'
-C       write (*,7777)  (infiles(iii),iii=1,10)
-7777    format (10(/,1x,a64))
-C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C +     PRINT THE CONFIGURATION TO THE USER'S SCREEN                           +
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C-----7---------------------------------------------------------------72
+C       PRINT CONFIGURATION SETTINGS TO STDOUT
+C-----7---------------------------------------------------------------72
 C
         WRITE (*,9070)
      +      IRECDO, NREC, RECGET(1),  RECGET(2),  RECGET(3),  RECGET(4),
      +      IOBSDO, NOBS, OBSGET(1),  OBSGET(2),  OBSGET(3),  OBSGET(4),
-     +      DATEDO, IBEGDAT, IENDDAT,
+ctac     +      DATEDO, IBEGDAT, IENDDAT,
      +      NMDO,  NML, (NEMLIST(NM),NM=1,20),
      +      LLDO, LATS, LATN, LONW, LONE,
      +      LLRDO, RADR,
@@ -803,46 +649,34 @@ C
      +      WMODO, NWMO, (WMOLIST(NZ),NZ=1,20),
      +      WBBDO, NWBB, (WBBLIST(NZ),NZ=1,10)
 C
+C-----7---------------------------------------------------------------72
+C        OPEN DIAGNOSTIC OUTPUT FILE, IF NEEDED
+C-----7---------------------------------------------------------------72
         IF (DODIAG.EQ.'y'.OR.DODIAG.EQ.'x')  THEN
-C
-C ##############################################################################
-C #       OPEN THE DIAGNOSTIC FILE, WHEN NEEDED                                #
-C ##############################################################################
-C
-          OPEN (IDUNIT, FILE=DIGFILE)    ! IF YOU WRITE TO IDUNIT WITHOUT
-C                                        ! PREVIOUSLY DOING THIS OPEN, THEN
-C                                        ! IT WILL CREATE A fort.7 OUTPUT FILE
-C                                        ! IN THE bufrobs DIRECTORY
-          WRITE (IDUNIT,9064)  DIGFILE
+          OPEN (IDUNIT, FILE=diag_file)    ! IN THE bufrobs DIRECTORY
+          WRITE (IDUNIT,9064) diag_file
 9064      FORMAT (/,1X,'DIAGNOSTIC FILE ',A32,' OPENED')
 C
           WRITE (IDUNIT,9065)  CONFILE
 9065      FORMAT (/,1X,'CONFIGURATION FILE ',A32,' OPENED',
      +            /,3X,'CHOICES FOLLOW')
-C
           WRITE (*,*)
           WRITE (*,*)  'DIAGNOSTIC FILE HAS BEEN OPENED'
-C
         ENDIF
 C
-C ##############################################################################
-C
+C-----7---------------------------------------------------------------72
+C        PRINT CONFIGURATION SETTINGS TO DIAGNOSTIC OUTPUT FILE
+C-----7---------------------------------------------------------------72
         IF (DODIAG.EQ.'y')  THEN
-C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C +       PRINT THE CONFIGURATION IN THE DIAGNOSTIC FILE                       +
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C
           WRITE (IDUNIT,9070)
      +      IRECDO, NREC, RECGET(1),  RECGET(2),  RECGET(3),  RECGET(4),
      +      IOBSDO, NOBS, OBSGET(1),  OBSGET(2),  OBSGET(3),  OBSGET(4),
-     +      DATEDO, IBEGDAT, IENDDAT,
+ctac     +      DATEDO, IBEGDAT, IENDDAT,
      +      NMDO,  NML, (NEMLIST(NM),NM=1,20),
      +      LLDO, LATS, LATN, LONW, LONE,
      +      LLRDO, RADR,
      +      NIR, LATR(1), LONR(1), LATR(2), LONR(2), LATR(3), LONR(3),
      +      IELEVDO, IELEVL, IELEVH,
-     +
      +      WMODO, NWMO, (WMOLIST(NZ),NZ=1,20),
      +      WBBDO, NWBB, (WBBLIST(NZ),NZ=1,10)
 9070      FORMAT (/,
@@ -852,7 +686,7 @@ C
      +            I3,')', 4(2X,A6),/
      +      '    OBS TYPE  ',A1,'   OBSGET  (1- 4 OF',
      +            I3,')',4(2X,A8),/
-     +      '   DATE/TIME  ',A1,'   IBEGDAT ',I10,'  IENDDAT ',I10,/
+ctac     +      '   DATE/TIME  ',A1,'   IBEGDAT ',I10,'  IENDDAT ',I10,/
      +      '   MNEMONICS  ',A1,'   NEMLIST (1-20 OF',
      +            I3,')',10(2X,A8),/35X,10(2X,A8),/
      +      '   LAT-LON    ',A1,'   LATS',I4,'  LATN',I4,
@@ -868,119 +702,42 @@ C
      +                          10(A2,1x)/,
      +      ' -------------------------------------------------------')
         ENDIF
-C
-C       /glade/data02/dsswork/baseball/datasets/ds461.0/bufr_configdecode_ADPSFC/bufrobs
-C       1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
-C                1         2         3         4         5         6         7         8         9        10
-C       gdas.adpsfc.t00z.20100901.bufr.le
-c
-        DO  III = 128, 1, -1
-          IF (DIRIN(III:III).NE.' '.AND.DIRIN(III:III).NE.'/')  THEN
-            DIRIN(III+1:III+1) = '/'
-            INHALE = III + 1
-            EXIT
-          ENDIF
-        ENDDO
-        DO  III = 128, 1, -1
-          IF (DIROUT(III:III).NE.' '.AND.DIROUT(III:III).NE.'/')  THEN
-            DIROUT(III+1:III+1) = '/'
-            EXHALE = III + 1
-            EXIT
-          ENDIF
-        ENDDO
-C
-C ##############################################################################
-C #                                                                            #
-C #     TOP OF MAIN LOOP ON INPUT FILES                                        #
-C #                                                                            #
-        KNK = 0                                                                #
-        DOFILS: DO              ! LOOP TO READ BUFR DATA FILES                 #
-C #                                                                            #
-C ##############################################################################
-C
-        KNK = KNK + 1
-        IF (KNK.GT.INK)  EXIT DOFILS
-C
-        INFILE = DIRIN(1:INHALE)//INFILES(KNK)
-C
-C ##############################################################################
-C #     OPEN THE BUFR DATA FILE, WHICH IS PACKED BINARY                        #
-C ##############################################################################
-C
+
+C-----7---------------------------------------------------------------72
+C       OPEN BUFR INPUT FILE
+C-----7---------------------------------------------------------------72
+        INFILE = input_file
+
         OPEN (IIUNIT, FILE=INFILE, FORM='UNFORMATTED' )
         IF (DODIAG.EQ.'y')  THEN
-          WRITE (IDUNIT,9090)  KNK, INK, INFILE
-9090      FORMAT (/,1X,'BUFR DATA INPUT FILE ',I5,' OF ',I5,' OPENED ',
-     +            A128)
+          WRITE (IDUNIT,9090) INFILE
+9090      FORMAT (/,1X,'BUFR DATA INPUT FILE ',A128,' OPENED')
         ENDIF
         WRITE (*,*)
-        WRITE (*,*)  'BUFR DATA INPUT FILE ',KNK,' OF ',INK,' OPENED ',
-     +    INFILE
-C    +    INFILE(1:INHALE+LENINMX)
+        WRITE (*,*)  'BUFR INPUT FILE OPENED: ',INFILE
 C
 C       ASSOCIATE THE TABLES FILE WITH THE MESSAGES FILE, AND IDENTIFY
 C       THE LATTER TO THE BUFRLIB SOFTWARE.
 C
         CALL OPENBF  ( IIUNIT, 'IN', 11 )
 C           
-C       OPENBF WILL BALK TRYING TO OPEN A REGULAR BUFR FILE ON A LITTLE-ENDIAN
-C         MACHINE.  IT WILL REPORT THAT THE STRING "BUFR" CAN NOT BE FOUND.  THE
-C         USER WILL NEED TO CONVERT THE FILE TO LITTLE-ENDIAN.
-C       THE FILES DSS HAS ALREADY CONVERTED WILL HAVE THE SUFFIX '.le'
+C-----7---------------------------------------------------------------72
+C       OPEN OUTPUT FILE
+C-----7---------------------------------------------------------------72
 C
-        PARSEOK = 'y'
-        LENEND = 0
-        DO N = 1, LENINMX
-          IF (LENEND.EQ.0.AND.INFILES(KNK)(N:N).EQ.' ')  LENEND = N - 1
-          IF (N.GE. 6.AND.N.LE.11)  THEN
-            IF (INFILES(KNK)(N:N).EQ.' ')  PARSEOK = 'n'
-          ENDIF
-          IF (N.GE.14.AND.N.LE.15)  THEN
-            IF (INFILES(KNK)(N:N).EQ.' ')  PARSEOK = 'n'
-          ENDIF
-          IF (N.GE.18.AND.N.LE.25)  THEN
-            IF (INFILES(KNK)(N:N).EQ.' ')  PARSEOK = 'n'
-          ENDIF
-          IF (PARSEOK.NE.'y')  EXIT
-        ENDDO
-        IF (PARSEOK.EQ.'y')  THEN
-          NAMTAGL(01:06) = INFILES(KNK)(06:11)
-          DASTAGL(01:04) = INFILES(KNK)(01:04)
-          CALL LOW2UP (NAMTAGL,NAMETAG,6)
-          CALL LOW2UP (DASTAGL,DASTAG,4)
-          DATETAG(01:08) = INFILES(KNK)(18:25)
-          DATETAG(09:10) = INFILES(KNK)(14:15)
-          PRTFILE = DIROUT(1:EXHALE)//DASTAG//'.'//NAMETAG//'.'
-     +              //DATETAG//'.txt'
-        ELSE
-          PRTFILE = DIROUT(1:EXHALE)//INFILES(KNK)(01:LENEND)//'_print'
-        ENDIF
-C
-C ##############################################################################
-C #     OPEN BUFR PRINTOUT ("DUMP") FILE                                       #
-C ##############################################################################
-C
-        OPEN(IPUNIT,FILE=PRTFILE,STATUS='UNKNOWN',FORM='FORMATTED')
-        IF (DODIAG.EQ.'y')  THEN
-          WRITE (IDUNIT,9100)  PRTFILE
-9100      FORMAT (/,1X,'BUFR REPORT PRINTOUT FILE',
-     +      /,1X,A100,'OPENED')
+        OPEN(IPUNIT,FILE=output_file,STATUS='UNKNOWN',FORM='FORMATTED')
+        IF (DODIAG.EQ.'y') THEN
+          WRITE (IDUNIT,9100) output_file
+9100      FORMAT (/,1X,'BUFR OUTPUT FILE OPENED ',A128)
         ENDIF
         WRITE (*,*)
-        WRITE (*,*)  'BUFR REPORT PRINTOUT FILE OPENED ',
-     +    PRTFILE
+        WRITE (*,*)  'BUFR OUTPUT FILE OPENED: ',output_file
 C
 C       SPECIFY THAT WE WOULD LIKE ROUTINE READNS TO RETURN RECDATE VALUES WITH
 C         10 DIGITS (I.E. YYYYMMDDHH ), WHICH IS THE MAXIMUM BECAUSE MINUTES ARE
 C         NOT AVAILABLE.
 C
-        CALL DATELEN (10)   ! IS THIS IN THE BUFR LIBRARY??
-C
-C       OPEN YOUR OWN ("EXTERNAL") BUFR TABLES FILE, AS AN ALTERNATIVE TO THE
-C         TABLE IN THE DATA FILES.
-C
-C       OPEN (IXUNIT, FILE='BUFRTAB.EXAMPLE' )
-C
+        CALL DATELEN (10)
         LN = 0          ! NEVER REDEFINED, UNLESS IT'S THROUGH THE EQIVALENCE
 C
 C ##### INITIALIZE BUFFER RECORD AND BUFR REPORT COUNTERS
@@ -993,48 +750,35 @@ C
         REPSACC = 0     ! TOTAL BUFR REPORTS ACCEPTED
         REPSREJ = 0     ! TOTAL BUFR REPORTS REJECTED
 C
-C ##############################################################################
-C #     LOOP TO READ BUFR RECORDS FROM THE DATA FILE                           #
-C ##############################################################################
+C-----7---------------------------------------------------------------72
+C     LOOP TO READ BUFR RECORDS FROM THE DATA FILE
+C-----7---------------------------------------------------------------72
 C
         DORECS: DO                      ! LOOP TO READ BUFR RECORDS (MESSAGES)
 C
 C         READ THE NEXT BUFR MESSAGE ("RECORD") FROM THE FILE
-C
-C
-C
-C
+
           CALL READNS(IIUNIT,CSUBSET,RECDATE,ISTATUS)
-C
-C
-C
-C
           IF  (ISTATUS.NE. 0 )  THEN    ! END OF DATA FILE
             CALL CLOSBF (IIUNIT)
             CLOSE (IIUNIT)
             EXIT DORECS         ! GO PRINT STATISTICS FOR THIS FILE'S PROCESSING
           ENDIF
 C
-C          CODE = IUPBS1(MBAY,33)
-C
           RECORDS = RECORDS + 1
-c
-c         write (*,*)  'hello, RECORDS ',RECORDS
-c
+
           MODREC = MOD(RECORDS,I500)
           IF (DODIAG.EQ.'y')  THEN
             IF (RECORDS.LE.50.OR.MODREC.EQ.1)  THEN
-C              WRITE (IDUNIT,9120)  RECORDS, RECDATE, CSUBSET, CODE
               WRITE (IDUNIT,9120)  RECORDS, RECDATE, CSUBSET
 9120          FORMAT (/,1X,111('#'),
      +          /,1X,'BUFR RECORD ',I8,' WITH RECDATE ',I10,
      +          ' OPENED,  CSUBSET ',A8)
-C     +          ' OPENED,  CSUBSET ',A8,'  CODE',I8)
             ENDIF
           ENDIF
 C
 C         THE RETURNED RECDATE (DAY/TIME) AND MAYBE CSUBSET APPLY TO
-C           ALL BUFR REPORTS IN THE RECORD?
+C           ALL BUFR REPORTS IN THE RECORD
 C
 C         GET (DECODE) A VERBOSE RECORD TYPE AND REPORT TYPE
 C           FROM CSUBSET, THEN CHECK WHETHER WE WANT THIS
@@ -1053,22 +797,6 @@ C
 C
 C ---------
 C
-C         CHECK WHETHER WE WANT DATA FOR THIS DATE AND TIME
-C
-c         write (*,*)  'hello, check date'
-C
-          IF (DATEDO.EQ.'y')  THEN
-            RRLEV = 'RECORD'
-            CALL CKDATE (RRLEV,RECORDS,RECDATE,IBEGDAT,IENDDAT,
-     +        IDUNIT,DODIAG,ACK)
-            IF (ACK.EQ.'n')  THEN
-              RECSREJ = RECSREJ + 1
-              CYCLE DORECS              ! REJECT UNINTERESTING RECORD
-            ENDIF                       !          (DATE/TIME)
-          ENDIF
-C
-C ---------
-C
 C         CHECK WHETHER WE WANT THIS PARTICULAR OBSERVATION TYPE'S
 C           DATA.  NOTE: ALTHOUGH UFBINT BREAKS OUT THE REPORTS IN
 C           THE INNER LOOP (NAMED DOREPS), WE ALREADY OBTAINED THE
@@ -1076,8 +804,6 @@ C           REPORT TYPE (FROM CSUBSET) WHICH APPLIES TO ALL REPORTS
 C           IN THIS RECORD. - AND CAN NOT GET IT WITH UFBINT. SO WE
 C           CAN FILTER HERE.
 C
-c         write (*,*)  'hello, check obstype'
-c
           IF (IOBSDO.EQ.'y')  THEN
             CALL CKOBS (RECORDS,OBSTYPE,OBSGET,NOBS,
      +        IDUNIT,DODIAG,ACK)
@@ -1095,17 +821,15 @@ C                                !   FOLLOWS
           IF (RECTYPE.EQ.'ADPSFC')  IRNO = 1
           IF (RECTYPE.EQ.'SFCSHP')  IRNO = 2
 C
-C
-C
           IF (DODIAG.EQ.'y')  THEN
             WRITE (*,*)  RECORDS
             WRITE (IDUNIT,9977)  RECORDS
 9977        FORMAT (9X,'RECORD ',I9,', START MAIN UFBINT LOOP')
           ENDIF
 C
-C ##############################################################################
-C #       LOOP TO READ BUFR REPORTS FROM THE RECORD, AND DO THE FILTERING      #
-C ##############################################################################
+C-----7---------------------------------------------------------------72
+C     LOOP TO READ BUFR REPORTS FROM THE RECORD, AND DO THE FILTERING
+C-----7---------------------------------------------------------------72
 C
           DOREPS: DO                            ! LOOP TO READ BUFR REPORTS (SUB-MESSAGES)
 C
@@ -1142,8 +866,6 @@ C
 C ----------
 C           (RE)INITIALIZE PARAMETER ARRAYS FOR THIS NEXT REPORT
 C
-c         write (*,*)  'hello, (re)initialize parameter arrays'
-c
             DO  MZ = 1, MXMN
                 R8IDENT(MZ,1)  = XMSG
               DO  LZ = 1, MXREPL
@@ -1195,9 +917,6 @@ C
             R8CLON = R8IDENT(5,Z)
 C
             IF (LLDO.EQ.'y')  THEN
-              WRITE (IDUNIT,9987)  R8CLAT,R8CLON,LATS,LATN,LONW,LONE
-9987          FORMAT (1X,'CALLING R8CLAT,R8CLON,LATS,LATN,LONW,LONE ',/
-     +                1X,F7.2,F7.2,4I5)
               CALL CKLL (RECORDS,RECREPS,R8CLAT,R8CLON,LATS,LATN,
      +                   LONW,LONE,LLWRAP,IDUNIT,DODIAG,ACK)
               IF (ACK.EQ.'n')  GO TO 290        ! REJECT UNINTERESTING REPORT
@@ -1208,7 +927,6 @@ C
               IF (ACK.EQ.'n')  GO TO 290        ! REJECT UNINTERESTING REPORT
             ENDIF
 C
-C
 C           IF (R8IDENT(1,Z).GT.R8BIG)  R8IDENT(1,Z) = 99.
 C           I8WMOB = R8IDENT(1,Z)               ! DO NOT NEED THIS
 C
@@ -1217,16 +935,7 @@ C           I8WMOS = R8IDENT(2,Z)               ! DO NOT NEED THIS
 C
             WRITE (A8RPID,9125)  R8IDENT(3,Z)   ! R8IDENT(3,Z) IS CHARACTER
 9125        FORMAT (A8)                         ! AND THIS ACTION YIELDS A
-C
-C
 C                                               ! LEFT-JUSTIFIED NUMBER OR STRING
-C
-C
-C
-C
-C
-C
-C
 C
             IF (WMODO.EQ.'y')  THEN
               CALL CKWMO (RECORDS,RECREPS,A8RPID,WMOLIST,NWMO,
@@ -1240,7 +949,6 @@ C
      +                  IDUNIT,DODIAG,ACK)
               IF (ACK.EQ.'n')  GO TO 290        ! REJECT UNINTERESTING REPORT
             ENDIF
-C
 C
             IF (R8IDENT(6,Z).GT.R8BIG)  R8IDENT(6,Z)   = 99999.
             I8SELV = R8IDENT(6,Z)
@@ -1257,16 +965,9 @@ C
             I8HOUR = R8IDENT(10,Z)
             I8DATE = I8YEAR*1000000 + I8MNTH*10000 + I8DAYS*100 + I8HOUR
 C
-C           IF (DATEDO.EQ.'y')  THEN
-C             RRLEV = 'REPORT'
-C             CALL CKDATE (RRLEV,REPORTS,I8DATE,IBEGDAT,IENDDAT,
-C    +          IDUNIT,DODIAG,ACK)
-C             IF (ACK.EQ.'n')  GO TO 290        ! REJECT UNINTERESTING REPORT
-C           ENDIF
-C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C +         DONE FILTERING                                                     +
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C-----7---------------------------------------------------------------72
+C      DONE FILTERING
+C-----7---------------------------------------------------------------72
 C
             IF (R8IDENT(11,Z).GT.R8BIG)  R8IDENT(11,Z)   = 99.
             I8MINU = R8IDENT(11,Z)
@@ -1381,9 +1082,9 @@ C
               ENDIF
             ENDIF
 C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C +         PRINT THIS REPORT, UNLESS THERE ARE NO MEASURED DATA VALUES        +
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C-----7---------------------------------------------------------------72
+C      PRINT THIS REPORT, UNLESS THERE ARE NO MEASURED DATA VALUES
+C-----7---------------------------------------------------------------72
 C
 C           2010.07.01 - LET'S NOT RETRIEVE OR SHOW THE RECORD DATE
 C
@@ -1417,20 +1118,19 @@ C           WRITE (6,6666)  DEFAULT, NNBASIC, NOBASIC, NML, NOEXTRA
 C
             REPSACC = REPSACC + 1
 C
-C           IF (MOD(REPSACC,30).EQ.1)  THEN
-            IF (    REPSACC    .EQ.1)  THEN
-C
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 C +           PRINT A HEADER EVERY 30 REPORTS -                                +
 C +             2011.05.13 - WE'RE DOING JUST THE FIRST ONE, TO MAKE IT SIMPLER+
 C +             TO LOAD THE FILE INTO A SPREADSHEET.                           + 
 C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 C
+C           IF (MOD(REPSACC,30).EQ.1)  THEN
+            IF (    REPSACC    .EQ.1)  THEN
               WRITE (IPUNIT,9270)  DUMPHED(1)(001:IHDEND),
      +                             DUMPHED(2)(001:IHDEND)
-C270          FORMAT ('# '/'# ',a/'# ',a)  # DROPPED THE # ON 211.05.13
 9270          FORMAT ('  '/'  ',a/'  ',a)
             ENDIF
+
             IF (DEFAULT.EQ.'y')  THEN
               WRITE (IPUNIT,9280)
 C    &        RECTYPE, IRECDAT, OBSTYPE,
@@ -1467,9 +1167,9 @@ C
             GO TO 300
  290        CONTINUE
 C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C +         WE HAVE SKIPPED DOWN TO HERE TO REJECT A REPORT                    +
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C-----7---------------------------------------------------------------72
+C         WE HAVE SKIPPED DOWN TO HERE TO REJECT A REPORT
+C-----7---------------------------------------------------------------72
 C
             REPSREJ = REPSREJ + 1
 C
@@ -1495,14 +1195,14 @@ C
         ENDIF
         RECSACC = RECORDS - RECSREJ
 C
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-C +     PRINT THE CONFIGURATION AT THE END OF THE PRINTOUT ("DUMP") FILE       +
-C ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+C-----7---------------------------------------------------------------72
+C     PRINT THE CONFIGURATION AT THE END OF THE OUTPUT FILE
+C-----7---------------------------------------------------------------72
 C
 C       DEACTIVATED 2011.05.13 TO AVOID CONFUSING SPREADSHEET USAGE
 C
-C       WRITE (IPUNIT,9880)  CONFILE
-9880    FORMAT (/,1X,'CONFIGURATION FILE ',A32,
+C       WRITE (IPUNIT,9880) config_file
+9880    FORMAT (/,1X,'CONFIGURATION FILE ',A128,
      +          /,3X,'CHOICES FOLLOW')
 C       WRITE (IPUNIT,9070)
 C    +      IRECDO, NREC, RECGET(1),  RECGET(2),  RECGET(3),  RECGET(4),
@@ -1516,10 +1216,16 @@ C    +      IELEVDO, IELEVL, IELEVH,
 C    +      WMODO, NWMO, (WMOLIST(NZ),NZ=1,20),
 C    +      WBBDO, NWBB, (WBBLIST(NZ),NZ=1,10)
 C
-        WRITE (IDUNIT,9890)  INFILE, RECORDS, RECSREJ, RECSACC,
-     +     REPORTS, REPSACC, REPSREJ
+C       WRITE (IPUNIT,9890)  INFILE, RECORDS, RECSREJ, RECSACC,
+C    +     REPORTS, REPSACC, REPSREJ
+
+        CLOSE   ( IPUNIT )
+
+        IF (DODIAG.EQ.'y')  THEN
+          WRITE (IDUNIT,9890)  INFILE, RECORDS, RECSREJ, RECSACC,
+     +          REPORTS, REPSACC, REPSREJ
 9890    FORMAT (/,1X,'BUFR EXTRACTION STATISTICS',
-     +            1X,'FOR FILE INFILE  ',A30,/,
+     +            1X,'FOR FILE INFILE  ',A66,/,
      +            5X,'RECORDS    FOUND ',I12,/,
      +            5X,'RECORDS REJECTED ',I12,/,
      +            5X,'RECORDS ACCEPTED ',I12,//,
@@ -1527,28 +1233,14 @@ C
      +                  ' (FROM ACCEPTED RECORDS)',/
      +           ,5X,'REPORTS ACCEPTED ',I12,/,
      +            5X,'REPORTS REJECTED ',I12)
-C
-C       WRITE (IPUNIT,9890)  INFILE, RECORDS, RECSREJ, RECSACC,
-C    +     REPORTS, REPSACC, REPSREJ
-        CLOSE   ( IPUNIT )
-        IF (REPSACC.LE.0)  THEN      ! REMOVE AN EMPTY OUTPUT FILE, WHEN IT EXISTS
-          CALL SYSTEM ("rm -f PRTFILE")
         ENDIF
 C
-C ##############################################################################
-C
-        ENDDO DOFILS            ! END OF READING A BUFR DATA FILE
-C
-C ##############################################################################
-C
-        WRITE (*,*)
-        WRITE (*,*)  'ALL ',INK,' BUFR DATA FILES PROCESSED'
-        WRITE (*,*)
-C
-        WRITE(IDUNIT,9900)  INK
-9900    FORMAT (//,' **** ALL ',I5,' BUFR DATA FILES PROCESSED *****',
-     +          //,' ************ DONE ************')
-C        STOP 99999
+        IF (REPSACC.LE.0)  THEN      ! REMOVE AN EMPTY OUTPUT FILE, WHEN IT EXISTS
+          CALL SYSTEM ("rm -f output_file")
+        ENDIF
+
+C-----7---------------------------------------------------------------72
+
         END
 C
 C       ########################################################################
@@ -2000,32 +1692,3 @@ C
         ENDDO
         RETURN
         END
-C ***
-C ***   When modifying bufradpsfc.f, after editing, a reinstall must
-C ***     be done by doing
-C ***          cd .../bufrdecode/src
-C ***          [edit] bufradpsfc.f
-C ***          cd ../install
-C ***          cat install.sh | sed s/CPLAT=linux/CPLAT=sun/ >! mk_exec.sh
-C ***          chmod 700 mk_sun_exec.sh
-C ***          mk_sun_exec.sh >>&! /dev/null
-C ***
-C ***     My bufr_bench script takes care of these procedures
-C ***
-C ***     Note that the install expects to be run in the .../install
-C ***     directory, to find the source code in a file named
-C ***     .../src/bufradpsfc.f , and a library of supporting code in
-C ***     .../lib , and will write the executable in
-C ***     .../exe/bufradpsfc.x .  It's default platform is "linux".  You
-C ***     you may need to change that to "sun" or something.
-C ***
-C ***   The install creates a script named convert.csh in directory .../exe,
-C ***     which runs every file found in directory .../bufrobs through
-C ***     both surface data decoders - .../exe/bufradpsfc.x and
-C ***     .../exe/bufrsfcship.x , leaving outputs in directory .../textobs.
-C ***
-C ***   Note that the published data files are in:
-C ***     /datazone/dsszone/ds461.0/
-C ***     A single typical ds461.0 tar file has a name like:
-C ***     gdassfcobs.20100410.tar.gz
-C ***
