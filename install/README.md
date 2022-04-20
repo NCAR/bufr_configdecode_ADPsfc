@@ -11,7 +11,9 @@ src         Contains two Fortran source code files to decode BUFR
             data files.
 ```
 Edit `install.sh` and set the `FC` and `CC` compilers and compiler options to
-your preference.  Then run the `install.sh` script to compile the source code and build the 
+your preference.  Additionally, change `LIB` to the full directory path to 
+the location of the BUFRLIB library on your computer or system.  Then run the 
+`install.sh` script to compile the source code and build the 
 executables.  This will gather source code from the `../src` directory 
 and create executables in the `../exe` directory.  Note that you
 will also need to compile and install the NCEP BUFRLIB library and provide a 
