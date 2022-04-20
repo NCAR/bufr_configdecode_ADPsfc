@@ -45,7 +45,9 @@ the configuration files, and finally running the decoder software.
 1.  Preparing the decoder software:
 
     To compile the BUFR libraries and extraction code, go to the `/install`
-    directory and run the `install.sh` script to complete the compilations.  
+    directory and run the `install.sh` script to complete the compilations.  You 
+    will need to edit `LIB` in `install.sh` to point to the correct location
+    of the BUFRLIB library on your computer or system prior to running the script.
 
     Note: `install.sh` uses `gfortran` to compile and link the source code.  This 
     is tested and works for Linux platforms, but may require adjustments for 
